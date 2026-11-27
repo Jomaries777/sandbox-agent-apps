@@ -1,0 +1,38 @@
+# Spike S4 (intent 0003): can a run Dependabot didn't start read the
+# Dependabot secret CI_APP_PRIVATE_KEY and mint a tci token? Expected: no.
+# Throwaway: lives only on the sandbox branch spike/s3-s4.
+name: spike-s4
+on:
+  push:
+    branches: [spike/s3-s4]
+permissions: {}
+jobs:
+  dependabot-secret:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Is the Dependabot secret visible?
+        env:
+          KEY: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "actor: $ACTOR"
+          if [ -z "$KEY" ]; then
+            echo "RESULT: CI_APP_PRIVATE_KEY is empty in this run"
+          else
+            echo "::error::RESULT: CI_APP_PRIVATE_KEY is visible to a run Dependabot didn't start"
+            exit 1
+          fi
+      - name: Try to mint a tci token anyway
+        id: mint
+        continue-on-error: true
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+      - name: Result
+        env:
+          OUTCOME: ${{ steps.mint.outcome }}
+        run: |
+          echo "RESULT: mint step outcome: $OUTCOME (expected: failure)"
+          [ "$OUTCOME" = failure ]
